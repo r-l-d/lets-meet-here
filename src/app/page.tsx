@@ -234,7 +234,7 @@ export default function Home() {
           </label>
 
           <button
-            className="sm:col-span-2 rounded-md bg-foreground px-4 py-2 text-background disabled:opacity-60"
+            className="sm:col-span-2 inline-flex items-center justify-center gap-2 rounded-md bg-foreground px-4 py-2 text-background disabled:opacity-60"
             type="submit"
             disabled={loading}
           >
@@ -245,6 +245,65 @@ export default function Home() {
 
       <section>
         <h2 className="text-lg font-medium">{title}</h2>
+        {loading && (
+          <div className="mt-4 flex flex-col items-center justify-center gap-2 rounded-xl border border-black/10 bg-black/5 p-6 text-sky-600">
+            <svg
+              className="h-20 w-20"
+              viewBox="0 0 32 32"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                id="heartLeftPath"
+                d="M16 10.2C14.4 8.2 12.8 7 10.5 7C7.7 7 5 9.2 5 12.5C5 18.3 11 22.5 16 27"
+                fill="none"
+              />
+              <path
+                id="heartRightPath"
+                d="M16 10.2C17.6 8.2 19.2 7 21.5 7C24.3 7 27 9.2 27 12.5C27 18.3 21 22.5 16 27"
+                fill="none"
+              />
+              <path
+                d="M16 27C11 22.5 5 18.3 5 12.5C5 9.2 7.7 7 10.5 7C12.8 7 14.4 8.2 16 10.2C17.6 8.2 19.2 7 21.5 7C24.3 7 27 9.2 27 12.5C27 18.3 21 22.5 16 27Z"
+                stroke="currentColor"
+                strokeOpacity="0.7"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray="2.8 2.8"
+              />
+              <g className="text-sky-600">
+                <path
+                  d="M0 -4L1.2 -1.2L4.6 -0.6L4.8 0.6L1.2 1.2L0 4L-1 1.2L-3.8 1L-4.2 0L-3.8 -1L-1 -1.2Z"
+                  fill="currentColor"
+                />
+                <animateMotion
+                  dur="3.6s"
+                  repeatCount="indefinite"
+                  rotate="auto"
+                >
+                  <mpath href="#heartLeftPath" />
+                </animateMotion>
+              </g>
+              <g className="text-fuchsia-500">
+                <path
+                  d="M0 -4L1.2 -1.2L4.6 -0.6L4.8 0.6L1.2 1.2L0 4L-1 1.2L-3.8 1L-4.2 0L-3.8 -1L-1 -1.2Z"
+                  fill="currentColor"
+                />
+                <animateMotion
+                  dur="3.6s"
+                  repeatCount="indefinite"
+                  rotate="auto-reverse"
+                >
+                  <mpath href="#heartRightPath" />
+                </animateMotion>
+              </g>
+            </svg>
+            <p className="text-sm font-medium text-sky-700">
+              Finding meetup options in the sky...
+            </p>
+          </div>
+        )}
         {error && (
           <p className="mt-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">
             {error}
