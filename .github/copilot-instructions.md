@@ -1,0 +1,8 @@
+- Project: Let’s meet here (Next.js + TypeScript + Tailwind).
+- Main user flow: search two home airports and suggest Europe meetup cities from live flight offers.
+- API route: `src/app/api/meetup-search/route.ts`.
+- UI page: `src/app/page.tsx`.
+- Keep scope minimal: Europe-only search, no extra pages.
+- Use environment variables from `.env.local`:
+  - `AMADEUS_CLIENT_ID`
+  - `AMADEUS_CLIENT_SECRET`
