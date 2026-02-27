@@ -24,24 +24,13 @@ type Offer = {
   }>;
 };
 
-type RyanairFare = {
-  outbound: {
-    departureAirport: {
-      iataCode: string;
-    };
-    arrivalAirport: {
-      iataCode: string;
-    };
-    departureDate: string;
-    arrivalDate: string;
-    price: {
-      value: number;
-      currencyCode: string;
-    };
-    flightKey: string;
-    flightNumber: string;
-  };
-};
+type AccessTokenCache = {
+  token: string;
+  expiresAt: number;
+  baseUrl: string;
+} | null;
+
+let tokenCache: AccessTokenCache = null;
 
 function isIataCode(value: string): boolean {
   return /^[A-Z]{3}$/.test(value);
@@ -110,48 +99,90 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
-function toIsoDuration(from: string, to: string): string {
-  const fromTs = Date.parse(from);
-  const toTs = Date.parse(to);
+function getAmadeusBaseUrl(): string {
+  const env = (process.env.AMADEUS_ENV ?? "").toLowerCase();
+  if (env === "production") {
+    return "https://api.amadeus.com";
+  }
+  if (env === "test") {
+    return "https://test.api.amadeus.com";
+  }
+  return process.env.NODE_ENV === "production"
+    ? "https://api.amadeus.com"
+    : "https://test.api.amadeus.com";
+}
 
-  if (!Number.isFinite(fromTs) || !Number.isFinite(toTs) || toTs <= fromTs) {
-    return "PT0M";
+async function getAmadeusToken(baseUrl: string): Promise<string> {
+  const clientId = process.env.AMADEUS_CLIENT_ID;
+  const clientSecret = process.env.AMADEUS_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Missing AMADEUS_CLIENT_ID or AMADEUS_CLIENT_SECRET.");
   }
 
-  const totalMinutes = Math.round((toTs - fromTs) / 60000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
+  if (
+    tokenCache &&
+    tokenCache.baseUrl === baseUrl &&
+    tokenCache.expiresAt > Date.now() + 30_000
+  ) {
+    return tokenCache.token;
+  }
 
-  if (hours > 0 && minutes > 0) {
-    return `PT${hours}H${minutes}M`;
+  const response = await fetch(`${baseUrl}/v1/security/oauth2/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to authenticate with Amadeus API.");
   }
-  if (hours > 0) {
-    return `PT${hours}H`;
-  }
-  return `PT${minutes}M`;
+
+  const data = (await response.json()) as {
+    access_token: string;
+    expires_in: number;
+  };
+
+  tokenCache = {
+    token: data.access_token,
+    expiresAt: Date.now() + data.expires_in * 1000,
+    baseUrl,
+  };
+
+  return data.access_token;
 }
 
 async function getCheapestOffer(params: {
+  token: string;
+  baseUrl: string;
   origin: string;
   destination: string;
   departureDate: string;
+  adults: number;
   currencyCode: string;
 }): Promise<Offer | null> {
   const search = new URLSearchParams({
-    departureAirportIataCode: params.origin,
-    arrivalAirportIataCode: params.destination,
-    outboundDepartureDateFrom: params.departureDate,
-    outboundDepartureDateTo: params.departureDate,
-    language: "en",
-    market: "en-gb",
-    currency: params.currencyCode,
-    offset: "0",
-    limit: "8",
+    originLocationCode: params.origin,
+    destinationLocationCode: params.destination,
+    departureDate: params.departureDate,
+    adults: String(params.adults),
+    currencyCode: params.currencyCode,
+    max: "5",
   });
 
   const response = await fetch(
-    `https://services-api.ryanair.com/farfnd/v4/oneWayFares?${search}`,
+    `${params.baseUrl}/v2/shopping/flight-offers?${search}`,
     {
+      headers: {
+        Authorization: `Bearer ${params.token}`,
+      },
       cache: "no-store",
     },
   );
@@ -160,49 +191,19 @@ async function getCheapestOffer(params: {
     return null;
   }
 
-  const payload = (await response.json()) as { fares?: RyanairFare[] };
-  const fares = payload.fares ?? [];
+  const payload = (await response.json()) as { data?: Offer[] };
+  const offers = payload.data ?? [];
 
-  if (fares.length === 0) {
+  if (offers.length === 0) {
     return null;
   }
 
-  fares.sort(
-    (left, right) => left.outbound.price.value - right.outbound.price.value,
+  offers.sort(
+    (left, right) =>
+      parsePrice(left.price.total) - parsePrice(right.price.total),
   );
 
-  const cheapestFare = fares[0];
-  const outbound = cheapestFare.outbound;
-  const carrierCode = outbound.flightNumber.replace(/\d/g, "") || "FR";
-  const flightNumber =
-    outbound.flightNumber.replace(/\D/g, "") || outbound.flightNumber;
-
-  return {
-    id: outbound.flightKey,
-    price: {
-      total: outbound.price.value.toFixed(2),
-      currency: outbound.price.currencyCode,
-    },
-    itineraries: [
-      {
-        duration: toIsoDuration(outbound.departureDate, outbound.arrivalDate),
-        segments: [
-          {
-            departure: {
-              iataCode: outbound.departureAirport.iataCode,
-              at: outbound.departureDate,
-            },
-            arrival: {
-              iataCode: outbound.arrivalAirport.iataCode,
-              at: outbound.arrivalDate,
-            },
-            carrierCode,
-            number: flightNumber,
-          },
-        ],
-      },
-    ],
-  };
+  return offers[0];
 }
 
 export async function POST(request: Request) {
@@ -254,6 +255,9 @@ export async function POST(request: Request) {
       );
     }
 
+    const baseUrl = getAmadeusBaseUrl();
+    const token = await getAmadeusToken(baseUrl);
+
     const candidateAirports = EUROPEAN_AIRPORTS.filter(
       (airport) => airport.code !== originA && airport.code !== originB,
     );
@@ -264,15 +268,21 @@ export async function POST(request: Request) {
       async (airport) => {
         const [offerA, offerB] = await Promise.all([
           getCheapestOffer({
+            token,
+            baseUrl,
             origin: originA,
             destination: airport.code,
             departureDate,
+            adults,
             currencyCode,
           }),
           getCheapestOffer({
+            token,
+            baseUrl,
             origin: originB,
             destination: airport.code,
             departureDate,
+            adults,
             currencyCode,
           }),
         ]);
@@ -316,6 +326,10 @@ export async function POST(request: Request) {
     return NextResponse.json({
       searchedAt: new Date().toISOString(),
       region: "Europe",
+      dataSource:
+        baseUrl === "https://api.amadeus.com"
+          ? "Amadeus (production)"
+          : "Amadeus (test)",
       filters: {
         originA,
         originB,

@@ -48,6 +48,7 @@ type MeetupOption = {
 
 type SearchResponse = {
   options: MeetupOption[];
+  dataSource?: string;
   error?: string;
 };
 
@@ -109,13 +110,14 @@ function FlightSummary({ label, offer }: { label: string; offer: Offer }) {
 }
 
 export default function Home() {
-  const [originA, setOriginA] = useState("DUB");
-  const [originB, setOriginB] = useState("STN");
+  const [originA, setOriginA] = useState("LHR");
+  const [originB, setOriginB] = useState("MAD");
   const [departureDate, setDepartureDate] = useState(getDefaultDate());
   const [adults, setAdults] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [options, setOptions] = useState<MeetupOption[]>([]);
+  const [dataSource, setDataSource] = useState<string>("Amadeus (test)");
 
   const title = useMemo(
     () =>
@@ -150,6 +152,9 @@ export default function Home() {
       }
 
       setOptions(payload.options ?? []);
+      if (payload.dataSource) {
+        setDataSource(payload.dataSource);
+      }
     } catch (submitError) {
       setError(
         submitError instanceof Error ? submitError.message : "Unexpected error",
@@ -163,10 +168,15 @@ export default function Home() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 p-6 sm:p-10">
       <section>
-        <h1 className="text-3xl font-semibold">Let&apos;s meet here</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-semibold">Let&apos;s meet here</h1>
+          <span className="rounded-full border border-black/15 bg-black/5 px-3 py-1 text-xs font-medium text-black/70">
+            Demo mode · {dataSource}
+          </span>
+        </div>
         <p className="mt-2 text-sm text-black/70">
           Compare real-time flight prices from two home airports and find the
-          best city to meet in Europe using public fare data.
+          best city to meet in Europe using Amadeus live flight data.
         </p>
       </section>
 
