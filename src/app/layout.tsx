@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Let's meet here",
+  title: "Let's meet there",
   description:
     "Find a Europe meetup city using real-time flight prices from two home airports.",
 };

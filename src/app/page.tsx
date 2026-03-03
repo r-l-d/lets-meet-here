@@ -169,7 +169,7 @@ export default function Home() {
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 p-6 sm:p-10">
       <section>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-3xl font-semibold">Let&apos;s meet here</h1>
+          <h1 className="text-3xl font-semibold">Let&apos;s meet there</h1>
           <span className="rounded-full border border-black/15 bg-black/5 px-3 py-1 text-xs font-medium text-black/70">
             Demo mode · {dataSource}
           </span>

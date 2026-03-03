@@ -1,4 +1,4 @@
-# Let&apos;s meet here
+# Let&apos;s meet there
 
 Find a city in Europe where two friends can meet by comparing real-time flight offers from both home airports.
 
